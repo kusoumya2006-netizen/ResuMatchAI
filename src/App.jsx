@@ -1,17 +1,10 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  FileText, UploadCloud, CheckCircle, AlertTriangle, TrendingUp, 
-  Award, Sparkles, BookOpen, Cpu, Moon, Sun, ArrowRight, 
-  RefreshCw, Check, ChevronDown, ChevronUp, Info, Plus, Trash2, Github
+import {
+  ArrowRight, Check, ChevronRight, FileText, Moon, RefreshCw,
+  Sparkles, Sun, UploadCloud, Target, ScanLine, Zap
 } from 'lucide-react';
-import { 
-  ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, 
-  Tooltip, Legend, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, 
-  Radar, BarChart, Bar, Cell, PieChart, Pie
-} from 'recharts';
 
-// Default Sample Data
 const DEFAULT_RESUME = `John Doe
 Senior Software Engineer
 john.doe@example.com | (555) 019-2834 | San Francisco, CA
@@ -46,1165 +39,271 @@ Key Requirements:
 - Familiarity with cloud platforms (AWS, Firebase) and deployment pipelines (CI/CD).
 - Excellent collaboration and Agile software development experience.`;
 
-// Key tech vocabulary database for matching
 const KEYWORDS_DB = [
-  'react', 'vue', 'angular', 'svelte', 'typescript', 'javascript', 'node.js', 'node',
-  'python', 'java', 'c++', 'ruby', 'git', 'agile', 'scrum', 'aws', 'docker',
-  'kubernetes', 'firebase', 'sql', 'nosql', 'mongodb', 'postgresql', 'graphql',
-  'restful apis', 'rest api', 'apis', 'framer motion', 'next.js', 'tailwind', 'sass',
-  'testing', 'jest', 'cypress', 'lcp', 'seo', 'optimization', 'performance', 'cloud',
-  'ci/cd', 'webpack', 'vite', 'redux', 'page speed', 'typescript', 'accessibility'
+  'react','vue','angular','svelte','typescript','javascript','node.js','node','python','java','c++','ruby',
+  'git','agile','scrum','aws','docker','kubernetes','firebase','sql','nosql','mongodb','postgresql','graphql',
+  'restful apis','rest api','apis','framer motion','next.js','tailwind','sass','testing','jest','cypress',
+  'lcp','seo','optimization','performance','cloud','ci/cd','webpack','vite','redux','page speed',
+  'accessibility'
 ];
 
-export default function App() {
-  const [theme, setTheme] = useState('dark');
-  const [page, setPage] = useState('landing'); // landing, upload, loading, dashboard
-  const [resumeText, setResumeText] = useState(DEFAULT_RESUME);
-  const [jobDesc, setJobDesc] = useState(DEFAULT_JOB_DESC);
-  const [resumeFileName, setResumeFileName] = useState('john_doe_resume.pdf');
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [activeTab, setActiveTab] = useState('overview'); // overview, keywords, suggestions, tuning
-  const [expandedSuggestion, setExpandedSuggestion] = useState(null);
-  const [scoreHistory, setScoreHistory] = useState([
-    { attempt: 'Initial V1', score: 54 },
-    { attempt: 'Added Skills', score: 68 },
-    { attempt: 'Updated Summary', score: 75 },
-  ]);
+function analyse(resumeText, jobDesc) {
+  const rText = resumeText.toLowerCase();
+  const jText = jobDesc.toLowerCase();
+  const sections = {
+    summary: rText.includes('summary') || rText.includes('objective') || rText.includes('profile'),
+    experience: rText.includes('experience') || rText.includes('history') || rText.includes('employment'),
+    skills: rText.includes('skills') || rText.includes('technologies') || rText.includes('competencies'),
+    education: rText.includes('education') || rText.includes('academic') || rText.includes('degrees'),
+    contact: rText.includes('@') || rText.includes('phone') || rText.includes('email')
+  };
+  const sectionCount = Object.values(sections).filter(Boolean).length;
+  const jobKeywords = KEYWORDS_DB.filter(kw => jText.includes(kw));
+  const matchedKeywords = jobKeywords.filter(kw => rText.includes(kw));
+  const missingKeywords = jobKeywords.filter(kw => !rText.includes(kw));
+  const recommendedKeywords = KEYWORDS_DB.filter(kw =>
+    !jobKeywords.includes(kw) && !rText.includes(kw) &&
+    ((matchedKeywords.includes('react') && ['next.js','framer motion','tailwind'].includes(kw)) ||
+     (matchedKeywords.includes('node.js') && ['graphql','postgresql','docker'].includes(kw)))
+  ).slice(0, 5);
+  const sectionScore = (sectionCount / 5) * 40;
+  const keywordScore = jobKeywords.length ? (matchedKeywords.length / jobKeywords.length) * 50 : 35;
+  const wordCount = rText.trim() ? rText.trim().split(/\s+/).length : 0;
+  const lengthScore = (wordCount >= 200 && wordCount <= 700) ? 10 : 5;
+  const totalScore = Math.min(Math.round(sectionScore + keywordScore + lengthScore), 100);
 
-  // Apply dark mode class to html element
-  useEffect(() => {
-    const root = window.document.documentElement;
-    if (theme === 'dark') {
-      root.classList.add('dark');
-    } else {
-      root.classList.remove('dark');
-    }
-  }, [theme]);
-
-  // Dynamic ATS matching logic
-  const analysisResult = useMemo(() => {
-    const rText = resumeText.toLowerCase();
-    const jText = jobDesc.toLowerCase();
-
-    // Check formatting elements
-    const sections = {
-      summary: rText.includes('summary') || rText.includes('objective') || rText.includes('profile'),
-      experience: rText.includes('experience') || rText.includes('history') || rText.includes('employment'),
-      skills: rText.includes('skills') || rText.includes('technologies') || rText.includes('competencies'),
-      education: rText.includes('education') || rText.includes('academic') || rText.includes('degrees'),
-      contact: rText.includes('@') || rText.includes('phone') || rText.includes('email')
-    };
-
-    const sectionCount = Object.values(sections).filter(Boolean).length;
-    
-    // Find keywords in job description
-    const jobKeywords = KEYWORDS_DB.filter(kw => jText.includes(kw));
-    // Find matches in resume
-    const matchedKeywords = jobKeywords.filter(kw => rText.includes(kw));
-    // Missing keywords
-    const missingKeywords = jobKeywords.filter(kw => !rText.includes(kw));
-    // Recommended additions (words that are in DB, related to matches, but not in resume/job description)
-    const recommendedKeywords = KEYWORDS_DB.filter(kw => 
-      !jobKeywords.includes(kw) && 
-      !rText.includes(kw) && 
-      (matchedKeywords.includes('react') && ['next.js', 'framer motion', 'tailwind'].includes(kw) ||
-       matchedKeywords.includes('node.js') && ['graphql', 'postgresql', 'docker'].includes(kw))
-    ).slice(0, 5);
-
-    // Calculate score
-    // 40% sections, 50% keyword match density, 10% formatting/length
-    const sectionScore = (sectionCount / 5) * 40;
-    const keywordScore = jobKeywords.length > 0 ? (matchedKeywords.length / jobKeywords.length) * 50 : 35;
-    
-    const wordCount = rText.split(/\s+/).length;
-    const lengthScore = (wordCount >= 200 && wordCount <= 700) ? 10 : 5;
-
-    const totalScore = Math.min(Math.round(sectionScore + keywordScore + lengthScore), 100);
-
-    // Generate suggestions dynamically
-    const suggestions = [];
-    if (!sections.experience) {
-      suggestions.push({
-        id: 'experience-section',
-        title: 'Add a clear "Experience" or "Work History" section',
-        description: 'Recruiters and ATS parsers scan for chronological work histories. Use a bold title like "Work Experience" or "Professional History" to ensure readability.',
-        severity: 'high',
-        category: 'formatting'
-      });
-    }
-    if (!sections.skills) {
-      suggestions.push({
-        id: 'skills-section',
-        title: 'Create a dedicated "Skills" layout',
-        description: 'Summarize your technology stack in a single clean section. This makes it easier for search algorithms to categorize your technical proficiencies.',
-        severity: 'high',
-        category: 'formatting'
-      });
-    }
-    if (wordCount < 200) {
-      suggestions.push({
-        id: 'length-short',
-        title: 'Resume word count is low',
-        description: `Your resume has only ${wordCount} words. Expand on your project accomplishments, specifying tools used and key deliverables to boost keyword matches.`,
-        severity: 'medium',
-        category: 'structure'
-      });
-    } else if (wordCount > 1000) {
-      suggestions.push({
-        id: 'length-long',
-        title: 'Resume is too verbose',
-        description: `Your resume exceeds 1000 words (${wordCount} words). Try to condense descriptions, focusing on bullet points that measure results, and keep it under 2 pages.`,
-        severity: 'medium',
-        category: 'structure'
-      });
-    }
-
-    // Dynamic suggestions based on missing keywords
-    missingKeywords.forEach((kw, index) => {
-      if (index < 4) { // Cap suggestions to keep layout elegant
-        suggestions.push({
-          id: `missing-${kw}`,
-          title: `Integrate the core skill "${kw.toUpperCase()}"`,
-          description: `The job description emphasizes "${kw}". Incorporate details of how or where you utilized ${kw} in your previous projects or summary section.`,
-          severity: index === 0 ? 'high' : 'medium',
-          category: 'keywords'
-        });
-      }
+  const suggestions = [];
+  if (!sections.experience) suggestions.push({ id:'experience-section', title:'Add a clear Experience section', description:'ATS parsers scan for chronological work histories. Use a clear heading such as Work Experience.', severity:'high', category:'formatting' });
+  if (!sections.skills) suggestions.push({ id:'skills-section', title:'Create a dedicated Skills section', description:'A focused skills section helps systems categorize your technical proficiencies.', severity:'high', category:'formatting' });
+  if (wordCount < 200) suggestions.push({ id:'length-short', title:'Resume is too light on evidence', description:`Your resume has only ${wordCount} words. Add concrete outcomes, scope and measurable wins.`, severity:'medium', category:'structure' });
+  if (wordCount > 1000) suggestions.push({ id:'length-long', title:'Resume is too verbose', description:`Your resume has ${wordCount} words. Condense descriptions and prioritize outcomes.`, severity:'medium', category:'structure' });
+  missingKeywords.forEach((kw, index) => {
+    if (index < 4) suggestions.push({
+      id:`missing-${kw}`, title:`Strengthen the ${kw.toUpperCase()} signal`,
+      description:`The target role emphasizes ${kw}. Add it only where it is truthful and supported by your experience.`,
+      severity:index===0?'high':'medium', category:'keywords'
     });
+  });
+  if (!suggestions.length) suggestions.push({ id:'perfect', title:'Core signals are covered', description:'Your current version covers the main structural and keyword requirements.', severity:'low', category:'keywords' });
 
-    if (missingKeywords.length === 0) {
-      suggestions.push({
-        id: 'perfect-keywords',
-        title: 'Excellent Keyword Coverage!',
-        description: 'You have matching skills for all core criteria outlined in the Job Description. Excellent job aligning your experiences.',
-        severity: 'low',
-        category: 'keywords'
-      });
-    }
-
-    // Dynamic score rating
-    let rating = 'Needs Improvement 📈';
-    let ratingColor = 'text-red-500';
-    if (totalScore >= 80) {
-      rating = 'Excellent Resume 🚀';
-      ratingColor = 'var(--success)';
-    } else if (totalScore >= 60) {
-      rating = 'Good Match ⭐';
-      ratingColor = 'var(--warning)';
-    }
-
-    // Skill category distributions for charts
-    const skillData = [
-      { subject: 'Technical Skills', A: Math.round(sections.skills ? 90 : 30), fullMark: 100 },
-      { subject: 'Core Keywords', A: Math.round(jobKeywords.length > 0 ? (matchedKeywords.length / jobKeywords.length) * 100 : 50), fullMark: 100 },
-      { subject: 'Experience Match', A: Math.round(sections.experience ? 85 : 20), fullMark: 100 },
-      { subject: 'Structure & Flow', A: Math.round((sectionCount / 5) * 100), fullMark: 100 },
-      { subject: 'Readability', A: wordCount >= 200 && wordCount <= 700 ? 95 : 60, fullMark: 100 },
-    ];
-
-    const matchRatioData = [
-      { name: 'Matched', value: matchedKeywords.length, color: 'var(--success)' },
-      { name: 'Missing', value: missingKeywords.length, color: 'var(--error)' },
-    ];
-
-    return {
-      score: totalScore,
-      rating,
-      ratingColor,
-      matchedKeywords,
-      missingKeywords,
-      recommendedKeywords,
-      suggestions,
-      skillData,
-      matchRatioData,
-      stats: {
-        sectionsFound: sectionCount,
-        wordCount,
-        matchCount: matchedKeywords.length,
-        missingCount: missingKeywords.length
-      }
-    };
-  }, [resumeText, jobDesc]);
-
-  // Handle sample load
-  const loadSample = () => {
-    setResumeText(DEFAULT_RESUME);
-    setJobDesc(DEFAULT_JOB_DESC);
-    setResumeFileName('john_doe_resume.pdf');
-    startAnalysis();
+  const rating = totalScore >= 80 ? 'Strong match' : totalScore >= 60 ? 'Promising match' : 'Needs work';
+  return {
+    score: totalScore, rating, matchedKeywords, missingKeywords, recommendedKeywords, suggestions,
+    stats: { sectionsFound: sectionCount, wordCount, matchCount: matchedKeywords.length, missingCount: missingKeywords.length }
   };
+}
 
-  // Start analysis trigger
+const demoLines = [
+  { id:'summary', label:'SUMMARY', text:'Software engineer building responsive web products.' },
+  { id:'impact', label:'EXPERIENCE', text:'Improved API response time by 40% through query optimization.' },
+  { id:'weak', label:'EXPERIENCE', text:'Worked on web applications and helped the team with development.' },
+  { id:'skills', label:'SKILLS', text:'React · JavaScript · Node.js · SQL · AWS · Git' }
+];
+
+export default function App(){
+  const [theme,setTheme] = useState('light');
+  const [page,setPage] = useState('landing');
+  const [resumeText,setResumeText] = useState(DEFAULT_RESUME);
+  const [jobDesc,setJobDesc] = useState(DEFAULT_JOB_DESC);
+  const [resumeFileName,setResumeFileName] = useState('john_doe_resume.pdf');
+  const [uploadProgress,setUploadProgress] = useState(0);
+  const [selectedSignal,setSelectedSignal] = useState(null);
+  const [rewriteDone,setRewriteDone] = useState(false);
+  const [selectedJob,setSelectedJob] = useState(0);
+
+  const result = useMemo(()=>analyse(resumeText,jobDesc),[resumeText,jobDesc]);
+
+  useEffect(()=>{
+    document.documentElement.classList.toggle('dark',theme==='dark');
+  },[theme]);
+
   const startAnalysis = () => {
-    setPage('loading');
-    setUploadProgress(0);
-    const interval = setInterval(() => {
-      setUploadProgress(prev => {
-        if (prev >= 100) {
-          clearInterval(interval);
-          setTimeout(() => {
-            // Append current score to history for trend visualization
-            setScoreHistory(prevHistory => {
-              const last = prevHistory[prevHistory.length - 1];
-              if (last && last.score === analysisResult.score) {
-                return prevHistory;
-              }
-              const newAttempt = `Attempt ${prevHistory.length + 1}`;
-              return [...prevHistory, { attempt: newAttempt, score: analysisResult.score }];
-            });
-            setPage('dashboard');
-          }, 600);
-          return 100;
-        }
-        return prev + 8;
-      });
-    }, 100);
-  };
-
-  // Drag and drop setup
-  const [dragActive, setDragActive] = useState(false);
-  const handleDrag = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.type === 'dragenter' || e.type === 'dragover') {
-      setDragActive(true);
-    } else if (e.type === 'dragleave') {
-      setDragActive(false);
-    }
-  };
-
-  const handleDrop = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragActive(false);
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      const file = e.dataTransfer.files[0];
-      setResumeFileName(file.name);
-      
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        if (event.target.result) {
-          // If txt file, parse, otherwise simulate reading
-          if (file.type === 'text/plain') {
-            setResumeText(event.target.result);
-          } else {
-            setResumeText(DEFAULT_RESUME + `\n\n[Parsed details from ${file.name}]`);
-          }
-          startAnalysis();
-        }
-      };
-      if (file.type === 'text/plain') {
-        reader.readAsText(file);
-      } else {
-        // Just simulate the upload with default data
-        setTimeout(() => {
-          startAnalysis();
-        }, 300);
+    setPage('loading'); setUploadProgress(0); setRewriteDone(false);
+    let current=0;
+    const timer=setInterval(()=>{
+      current=Math.min(current+10,100);
+      setUploadProgress(current);
+      if(current>=100){
+        clearInterval(timer);
+        setTimeout(()=>setPage('dashboard'),280);
       }
+    },90);
+  };
+
+  const handleFile = file => {
+    if(!file) return;
+    setResumeFileName(file.name);
+    if(file.type==='text/plain'){
+      const reader=new FileReader();
+      reader.onload=e=>{setResumeText(String(e.target?.result||''));startAnalysis();};
+      reader.readAsText(file);
+    }else{
+      setResumeText(DEFAULT_RESUME+`\n\n[Parsed details from ${file.name}]`);
+      startAnalysis();
     }
   };
+
+  const jobs=[
+    {title:'Frontend Engineer',company:'GROWW',score:94,reason:'React, performance and product-building evidence align strongly. Your measurable impact is the strongest signal.',bars:[96,88,92]},
+    {title:'Software Engineer',company:'MICROSOFT',score:89,reason:'Strong engineering foundation. Add more evidence around scale and system design.',bars:[91,86,84]},
+    {title:'Full Stack Developer',company:'AMAZON',score:86,reason:'Close stack fit. Backend ownership and deployment evidence are the main gaps.',bars:[88,90,82]}
+  ];
 
   return (
-    <div className={`min-h-screen relative overflow-hidden flex flex-col ${theme === 'dark' ? 'dark text-slate-100' : 'bg-slate-50 text-slate-900'}`}>
-      {/* Background Orbs */}
-      <div className="orb-glow orb-primary" />
-      <div className="orb-glow orb-secondary" />
-      <div className="orb-glow orb-accent" />
-
-      {/* Navigation Header */}
-      <header className="sticky top-0 z-40 w-full border-b border-slate-200/50 dark:border-slate-800/50 bg-white/40 dark:bg-slate-900/40 backdrop-blur-md">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2.5 cursor-pointer" onClick={() => setPage('landing')}>
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
-              <Sparkles className="w-5.5 h-5.5 text-white" />
-            </div>
-            <span className="text-xl font-bold bg-gradient-to-r from-indigo-600 via-purple-600 to-cyan-500 bg-clip-text text-transparent dark:from-indigo-400 dark:to-cyan-400">
-              ResuMatch AI
-            </span>
-          </div>
-
-          <div className="flex items-center gap-4">
-            <button 
-              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-              className="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-950/50 text-slate-600 dark:text-slate-400 hover:text-indigo-500 dark:hover:text-indigo-400 hover:scale-105 transition-all"
-              aria-label="Toggle Theme"
-            >
-              {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-            </button>
-
-            {page === 'dashboard' && (
-              <button 
-                onClick={() => setPage('upload')}
-                className="btn-primary py-2 px-4 text-sm"
-              >
-                Upload New
-              </button>
-            )}
-          </div>
+    <div className={`app ${theme==='dark'?'app-dark':''}`}>
+      <header className="topbar">
+        <button className="brand" onClick={()=>setPage('landing')}>RESUMATCH <span>AI</span></button>
+        <nav>
+          <button onClick={()=>setPage('landing')}>PRODUCT</button>
+          <button onClick={()=>page==='dashboard' && document.getElementById('matches')?.scrollIntoView({behavior:'smooth'})}>MATCHES</button>
+          <button onClick={()=>page==='dashboard' && document.getElementById('insights')?.scrollIntoView({behavior:'smooth'})}>INSIGHTS</button>
+        </nav>
+        <div className="top-actions">
+          <button className="icon-btn" onClick={()=>setTheme(theme==='dark'?'light':'dark')} aria-label="Toggle theme">{theme==='dark'?<Sun size={16}/>:<Moon size={16}/>}</button>
+          <button className="tiny-cta" onClick={()=>setPage('upload')}>START ↗</button>
         </div>
       </header>
 
-      {/* Main Container */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-10 flex flex-col justify-center">
-        
-        {/* LANDING PAGE */}
-        {page === 'landing' && (
-          <div className="landing-wrapper">
-            <div className="landing-grid">
-              
-              {/* Left Column: Content & Statistics */}
-              <div className="landing-left">
-                <div className="badge-promo">
-                  <Award className="w-4 h-4" />
-                  Voted #1 Resume Analyzer SaaS
+      <AnimatePresence mode="wait">
+        {page==='landing' && (
+          <motion.main className="landing-screen" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
+            <section className="hero-v2">
+              <div className="hero-copy-v2">
+                <div className="eyebrow">RESUMATCH / CAREER INTELLIGENCE</div>
+                <h1>THE RESUME<br/><em>IS THE SIGNAL.</em></h1>
+                <p>See what the system sees. Strengthen what matters. Match your real experience to the jobs worth applying for.</p>
+                <div className="hero-buttons">
+                  <button className="black-btn" onClick={()=>setPage('upload')}>ANALYZE MY RESUME <ArrowRight size={17}/></button>
+                  <button className="text-btn" onClick={()=>document.getElementById('how')?.scrollIntoView({behavior:'smooth'})}>SEE HOW IT THINKS <ChevronRight size={15}/></button>
                 </div>
-                
-                <h1 className="hero-title">
-                  Optimize Your <br className="hidden sm:inline" />
-                  Resume For <span className="gradient-text">ATS Screeners</span>
-                </h1>
-                
-                <p className="hero-subtitle">
-                  Scan your resume against job postings dynamically. Uncover critical missing keywords, calculate instant alignment ratings, and get precise formatting advice to land interviews.
-                </p>
-                
-                <div className="cta-button-group">
-                  <button 
-                    onClick={() => setPage('upload')}
-                    className="btn-primary hero-cta-btn"
-                  >
-                    Get Started <ArrowRight className="w-5 h-5" />
-                  </button>
-                  <button 
-                    onClick={loadSample}
-                    className="btn-secondary hero-cta-btn"
-                  >
-                    Try Sample Resume
-                  </button>
-                </div>
-
-                {/* Statistics Row (Aligned Horizontally) */}
-                <div className="stats-row">
-                  <div className="stat-card">
-                    <div className="stat-value text-indigo-500 dark:text-indigo-400">98%</div>
-                    <div className="stat-label">Accuracy Rating</div>
-                  </div>
-                  <div className="stat-card">
-                    <div className="stat-value text-purple-500 dark:text-purple-400">10s</div>
-                    <div className="stat-label">Scan Speed</div>
-                  </div>
-                  <div className="stat-card">
-                    <div className="stat-value text-cyan-500 dark:text-cyan-400">250K+</div>
-                    <div className="stat-label">Resumes Scanned</div>
-                  </div>
-                </div>
+                <div className="hero-proof"><span>01</span><b>DOCUMENT → SIGNAL</b><small>Built around the resume, not around dashboards.</small></div>
               </div>
-
-              {/* Right Column: Hero Illustration */}
-              <div className="landing-right">
-                <div className="w-full max-w-md aspect-square glass-panel p-8 relative flex items-center justify-center shadow-2xl border-white/20">
-                  
-                  {/* Floating Geometric shapes */}
-                  <div className="absolute top-8 left-8 w-6 h-6 border-2 border-indigo-400 rounded-lg floating-shape" style={{ animationDelay: '0s' }} />
-                  <div className="absolute bottom-10 right-10 w-8 h-8 rounded-full border-2 border-purple-400 floating-shape" style={{ animationDelay: '2s' }} />
-                  <div className="absolute top-1/4 right-8 w-5 h-5 bg-cyan-400/20 rounded-md rotate-45 floating-shape" style={{ animationDelay: '4s' }} />
-
-                  <div className="w-64 h-80 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-lg relative overflow-hidden flex flex-col p-5 space-y-4">
-                    {/* Top Header Card */}
-                    <div className="flex items-center gap-3 border-b border-slate-100 dark:border-slate-800 pb-3">
-                      <div className="w-10 h-10 rounded-lg bg-indigo-500/10 flex items-center justify-center text-indigo-500">
-                        <FileText className="w-6 h-6" />
-                      </div>
-                      <div className="space-y-1">
-                        <div className="h-3.5 w-24 bg-slate-200 dark:bg-slate-800 rounded-md" />
-                        <div className="h-2 w-16 bg-slate-100 dark:bg-slate-800/60 rounded-md" />
-                      </div>
-                    </div>
-
-                    {/* Body Mock Lines */}
-                    <div className="space-y-3.5 flex-1 pt-1">
-                      <div className="h-2.5 w-full bg-slate-200 dark:bg-slate-800 rounded-md" />
-                      <div className="h-2.5 w-5/6 bg-slate-200 dark:bg-slate-800 rounded-md" />
-                      <div className="h-2.5 w-4/6 bg-slate-200 dark:bg-slate-800 rounded-md" />
-                      
-                      <div className="pt-3 space-y-2">
-                        <div className="h-2 w-12 bg-indigo-200 dark:bg-indigo-950/60 rounded-md" />
-                        <div className="flex gap-2">
-                          <div className="h-5 w-14 bg-emerald-500/25 border border-emerald-500/30 rounded-full" />
-                          <div className="h-5 w-16 bg-rose-500/25 border border-rose-500/30 rounded-full" />
-                          <div className="h-5 w-12 bg-amber-500/25 border border-amber-500/30 rounded-full" />
-                        </div>
-                      </div>
-
-                      <div className="pt-3 space-y-2">
-                        <div className="h-2 w-16 bg-slate-200 dark:bg-slate-800 rounded-md" />
-                        <div className="h-2 w-full bg-slate-100 dark:bg-slate-800/60 rounded-md" />
-                        <div className="h-2 w-full bg-slate-100 dark:bg-slate-800/60 rounded-md" />
-                      </div>
-                    </div>
-
-                    {/* Scanning Neon Grid Overlay */}
-                    <div className="absolute inset-0 pointer-events-none flex flex-col justify-between">
-                      <motion.div 
-                        initial={{ y: 0 }}
-                        animate={{ y: 320 }}
-                        transition={{ 
-                          repeat: Infinity, 
-                          repeatType: "reverse", 
-                          duration: 3, 
-                          ease: "easeInOut" 
-                        }}
-                        className="w-full h-1 bg-gradient-to-r from-indigo-500 via-cyan-400 to-purple-500 shadow-[0_0_15px_rgba(99,102,241,1)] relative z-10"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-b from-indigo-500/5 to-transparent h-1/2 opacity-30 mix-blend-screen" />
-                    </div>
-                  </div>
-
-                  {/* Score Tag Card */}
-                  <motion.div 
-                    initial={{ scale: 0.8, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    transition={{ delay: 0.5, type: 'spring' }}
-                    className="absolute -bottom-4 -left-4 glass-panel p-4 flex items-center gap-3 shadow-xl border-white/20"
-                  >
-                    <div className="w-12 h-12 rounded-full border-4 border-indigo-500/30 border-t-indigo-500 flex items-center justify-center font-bold text-sm bg-white/80 dark:bg-slate-900/80">
-                      84%
-                    </div>
-                    <div>
-                      <div className="text-xs text-slate-400">Match Rating</div>
-                      <div className="text-sm font-semibold text-emerald-500">Good Match ⭐</div>
-                    </div>
-                  </motion.div>
+              <div className="hero-machine">
+                <div className="machine-head"><span>LIVE RESUME / INTERACTIVE</span><b>● SYSTEM READY</b></div>
+                <div className="machine-grid" />
+                <div className="demo-resume">
+                  <div className="doc-name">SOUMYA K</div>
+                  <div className="doc-role">SOFTWARE ENGINEER · CSE</div>
+                  {demoLines.map(line=>(
+                    <button key={line.id} className={`doc-line ${selectedSignal===line.id?'selected':''}`} onClick={()=>setSelectedSignal(line.id)}>
+                      <span>{line.label}</span><p>{line.text}</p><i>↗</i>
+                    </button>
+                  ))}
                 </div>
+                <motion.div className={`inspector-mini ${selectedSignal?'show':''}`} animate={{opacity:selectedSignal?1:.0,y:selectedSignal?0:12}}>
+                  <div className="mini-kicker">AI INSPECTOR</div>
+                  <strong>{selectedSignal==='weak'?'LOW SIGNAL':selectedSignal==='impact'?'STRONG SIGNAL':'PROFILE SIGNAL'}</strong>
+                  <p>{selectedSignal==='weak'?'Activity is visible. Outcome is not. Click “Analyze” to turn this into evidence.':selectedSignal==='impact'?'Measurable impact is recruiter-readable evidence. Keep this visible.':'This is part of the profile ResuMatch uses to reason about fit.'}</p>
+                </motion.div>
+                <div className="score-floating"><span>LIVE SIGNAL</span><strong>{selectedSignal==='impact'?84:72}</strong><small>{selectedSignal?'UPDATED FROM YOUR SELECTION':'SELECT A LINE TO INSPECT'}</small></div>
               </div>
-
-            </div>
-          </div>
+            </section>
+            <section className="process-band" id="how">
+              <div><span>01</span><b>READ</b><small>Parse the document</small></div>
+              <div><span>02</span><b>INSPECT</b><small>Expose weak signals</small></div>
+              <div><span>03</span><b>STRENGTHEN</b><small>Improve the evidence</small></div>
+              <div><span>04</span><b>MATCH</b><small>Find the right role</small></div>
+            </section>
+            <section className="statement-block">
+              <div className="eyebrow">THE DIFFERENCE</div>
+              <h2>SAME EXPERIENCE.<br/><span>BETTER TRANSLATION.</span></h2>
+              <p>Not another resume builder. ResuMatch makes the invisible decisions visible — then lets you act on them.</p>
+            </section>
+          </motion.main>
         )}
 
-        {/* UPLOAD RESUME PAGE */}
-        {page === 'upload' && (
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="max-w-2xl mx-auto w-full glass-panel p-8 shadow-2xl relative border-white/10"
-          >
-            <div className="text-center space-y-2 mb-8">
-              <h2 className="text-3xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">Analyze Your Resume</h2>
-              <p className="text-slate-500 dark:text-slate-400 text-sm">Upload a PDF, TXT or paste your resume content below to scan alignment scores.</p>
-            </div>
-
-            {/* Drag & Drop Area */}
-            <div
-              onDragEnter={handleDrag}
-              onDragOver={handleDrag}
-              onDragLeave={handleDrag}
-              onDrop={handleDrop}
-              className={`border-2 border-dashed rounded-2xl p-10 flex flex-col items-center justify-center transition-all cursor-pointer ${
-                dragActive 
-                  ? 'border-indigo-500 bg-indigo-500/10 shadow-[0_0_15px_var(--primary-glow)]' 
-                  : 'border-slate-300 dark:border-slate-800 bg-slate-500/5 hover:border-indigo-400 hover:bg-indigo-500/5'
-              }`}
-              onClick={() => document.getElementById('file-upload-input').click()}
-            >
-              <input
-                id="file-upload-input"
-                type="file"
-                className="hidden"
-                accept=".txt,.pdf"
-                onChange={(e) => {
-                  if (e.target.files && e.target.files[0]) {
-                    setResumeFileName(e.target.files[0].name);
-                    const file = e.target.files[0];
-                    if (file.type === 'text/plain') {
-                      const reader = new FileReader();
-                      reader.onload = (el) => setResumeText(el.target.result);
-                      reader.readAsText(file);
-                    } else {
-                      setResumeText(DEFAULT_RESUME + `\n\n[Simulated parsed details from ${file.name}]`);
-                    }
-                    startAnalysis();
-                  }
-                }}
-              />
-              <motion.div
-                animate={{ y: [0, -8, 0] }}
-                transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
-                className="w-16 h-16 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-500 dark:text-indigo-400 mb-4"
+        {page==='upload' && (
+          <motion.main className="upload-screen" initial={{opacity:0,y:16}} animate={{opacity:1,y:0}} exit={{opacity:0,y:-12}}>
+            <div className="upload-header"><div className="eyebrow">01 / START WITH THE DOCUMENT</div><h2>DROP IT IN.<br/><span>SEE WHAT WE FIND.</span></h2></div>
+            <div className="upload-layout">
+              <label className={`drop-zone ${resumeFileName?'has-file':''}`}
+                onDragEnter={e=>e.preventDefault()} onDragOver={e=>e.preventDefault()}
+                onDrop={e=>{e.preventDefault();handleFile(e.dataTransfer.files?.[0]);}}
               >
-                <UploadCloud className="w-9 h-9" />
-              </motion.div>
-              <p className="text-base font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                Drag & drop your resume file here
-              </p>
-              <p className="text-xs text-slate-500 dark:text-slate-500 mb-3">
-                Supports PDF and TXT formats (Max 5MB)
-              </p>
-              <span className="text-xs font-semibold px-3 py-1 bg-slate-200/60 dark:bg-slate-800/60 rounded-lg text-slate-600 dark:text-slate-400">
-                Browse Files
-              </span>
-            </div>
-
-            {/* Separator */}
-            <div className="flex items-center gap-4 my-6">
-              <div className="h-[1px] bg-slate-200 dark:bg-slate-800 flex-1" />
-              <span className="text-xs text-slate-400 font-medium uppercase tracking-wider">or paste content</span>
-              <div className="h-[1px] bg-slate-200 dark:bg-slate-800 flex-1" />
-            </div>
-
-            {/* Paste inputs */}
-            <div className="space-y-4 text-left">
-              <div>
-                <label className="block text-sm font-semibold text-slate-600 dark:text-slate-400 mb-1.5">Resume Text Content</label>
-                <textarea
-                  className="text-input min-h-[140px] resize-y font-mono text-xs"
-                  placeholder="Paste details of your background, work history, skills here..."
-                  value={resumeText}
-                  onChange={(e) => setResumeText(e.target.value)}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-slate-600 dark:text-slate-400 mb-1.5">Target Job Description</label>
-                <textarea
-                  className="text-input min-h-[100px] resize-y text-sm"
-                  placeholder="Paste the job posting description you are targeting..."
-                  value={jobDesc}
-                  onChange={(e) => setJobDesc(e.target.value)}
-                />
-              </div>
-
-              <div className="flex gap-4 pt-2">
-                <button
-                  onClick={startAnalysis}
-                  disabled={!resumeText.trim()}
-                  className="btn-primary flex-1 py-3.5 justify-center disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Analyze Optimization <Sparkles className="w-5 h-5" />
-                </button>
-                <button
-                  onClick={loadSample}
-                  className="btn-secondary py-3.5 justify-center"
-                >
-                  Load Sample
-                </button>
+                <input type="file" accept=".pdf,.txt,.doc,.docx" onChange={e=>handleFile(e.target.files?.[0])}/>
+                <UploadCloud size={28}/>
+                <strong>{resumeFileName ? resumeFileName : 'Drop your resume here'}</strong>
+                <span>PDF or TXT · Max 5MB</span>
+                <b>CLICK TO CHOOSE</b>
+              </label>
+              <div className="input-stack">
+                <label>OR PASTE THE DOCUMENT<textarea value={resumeText} onChange={e=>setResumeText(e.target.value)} /></label>
+                <label>TARGET JOB<textarea value={jobDesc} onChange={e=>setJobDesc(e.target.value)} /></label>
+                <div className="upload-actions"><button className="black-btn" onClick={startAnalysis} disabled={!resumeText.trim()}>RUN THE ANALYSIS <ScanLine size={16}/></button><button className="text-btn" onClick={()=>{setResumeText(DEFAULT_RESUME);setJobDesc(DEFAULT_JOB_DESC);setResumeFileName('john_doe_resume.pdf')}}>LOAD SAMPLE</button></div>
               </div>
             </div>
-          </motion.div>
+          </motion.main>
         )}
 
-        {/* LOADING / SCANNING ANIMATION */}
-        {page === 'loading' && (
-          <div className="max-w-md mx-auto w-full glass-panel p-8 text-center space-y-6">
-            <h3 className="text-2xl font-bold bg-gradient-to-r from-indigo-400 to-cyan-400 bg-clip-text text-transparent">Extracting Resume Tokens</h3>
-            <p className="text-slate-400 text-sm">Simulating semantic analysis model nodes...</p>
-
-            <div className="relative py-8 flex justify-center">
-              <div className="w-32 h-32 rounded-full border-4 border-slate-800 flex items-center justify-center relative overflow-hidden">
-                {/* Circular indicator */}
-                <svg className="w-full h-full absolute transform -rotate-90">
-                  <circle
-                    className="text-slate-800"
-                    strokeWidth="4"
-                    stroke="currentColor"
-                    fill="transparent"
-                    r="58"
-                    cx="64"
-                    cy="64"
-                  />
-                  <motion.circle
-                    className="text-indigo-500"
-                    strokeWidth="4"
-                    strokeDasharray={2 * Math.PI * 58}
-                    strokeDashoffset={2 * Math.PI * 58 * (1 - uploadProgress / 100)}
-                    strokeLinecap="round"
-                    stroke="currentColor"
-                    fill="transparent"
-                    r="58"
-                    cx="64"
-                    cy="64"
-                  />
-                </svg>
-                <div className="text-2xl font-bold text-slate-100">{uploadProgress}%</div>
-              </div>
+        {page==='loading' && (
+          <motion.main className="loading-screen" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
+            <div className="loading-main">
+              <div className="eyebrow">RESUMATCH ENGINE / LIVE</div>
+              <h2>TURNING WORDS<br/>INTO <span>SIGNALS.</span></h2>
+              <div className="loading-doc">{[1,2,3,4,5,6].map(i=><motion.div key={i} animate={{scaleX:[.35,.95,.55],x:[0,6,-3,0]}} transition={{duration:1.2,delay:i*.06,repeat:Infinity}} />)}</div>
+              <div className="loading-status"><span>ANALYZING {resumeFileName}</span><b>{uploadProgress}%</b></div>
+              <div className="loading-track"><motion.i animate={{width:`${uploadProgress}%`}} /></div>
+              <p>{uploadProgress<30?'Opening document streams…':uploadProgress<60?'Mapping experience and skills…':uploadProgress<90?'Comparing target-job vocabulary…':'Calculating profile signal…'}</p>
             </div>
-
-            {/* Parsing status lines */}
-            <div className="h-10 text-xs font-mono text-slate-500 space-y-1">
-              {uploadProgress < 30 && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>[INFO] Opening resume file streams...</motion.div>}
-              {uploadProgress >= 30 && uploadProgress < 60 && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>[PROCESS] Matching experience timeline maps...</motion.div>}
-              {uploadProgress >= 60 && uploadProgress < 90 && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>[PROCESS] Scanning job description vocabulary nodes...</motion.div>}
-              {uploadProgress >= 90 && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>[SUCCESS] Recalculating ATS Score Matrices...</motion.div>}
-            </div>
-
-            <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
-              <motion.div 
-                className="h-full bg-gradient-to-r from-indigo-500 to-cyan-400" 
-                style={{ width: `${uploadProgress}%` }}
-              />
-            </div>
-          </div>
+          </motion.main>
         )}
 
-        {/* DASHBOARD REPORT */}
-        {page === 'dashboard' && (
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="space-y-8 text-left"
-          >
-            {/* Top Info Banner (Resume Info Card) */}
-            <div className="glass-card resume-info-card">
-              <div className="resume-info-main">
-                <div className="resume-info-icon-wrapper">
-                  <FileText className="w-6 h-6 text-indigo-500" />
+        {page==='dashboard' && (
+          <motion.main className="dashboard-screen" initial={{opacity:0}} animate={{opacity:1}}>
+            <section className="dash-intro">
+              <div><div className="eyebrow">02 / YOUR RESUME, UNDERSTOOD</div><h2>{resumeFileName}</h2><p>{result.stats.wordCount} words · {result.stats.matchCount} matched keywords · {result.stats.missingCount} gaps</p></div>
+              <button className="outline-btn" onClick={()=>setPage('upload')}><RefreshCw size={15}/> RE-ANALYZE</button>
+            </section>
+
+            <section className="signal-board" id="insights">
+              <div className="signal-main">
+                <div className="mono-label">CURRENT PROFILE SIGNAL</div>
+                <div className="big-score">{result.score}<span>/100</span></div>
+                <p>{result.rating}. Your biggest leverage is in the missing signals below.</p>
+                <div className="signal-rail"><i style={{width:`${result.score}%`}} /></div>
+              </div>
+              <div className="signal-stats">
+                <div><span>KEYWORDS</span><strong>{result.stats.matchCount}</strong><small>matched</small></div>
+                <div><span>GAPS</span><strong>{result.stats.missingCount}</strong><small>to review</small></div>
+                <div><span>SECTIONS</span><strong>{result.stats.sectionsFound}/5</strong><small>detected</small></div>
+              </div>
+              <div className="verdict"><Sparkles size={16}/><span>AI VERDICT</span><strong>{result.score>=80?'You’re closer than you think.':'The experience is there. The evidence needs work.'}</strong></div>
+            </section>
+
+            <section className="action-canvas">
+              <div className="canvas-head"><div><div className="eyebrow">03 / MAKE ONE CHANGE</div><h2>DON’T ADD MORE.<br/><span>MAKE IT LAND.</span></h2></div><div className="mono-label">SELECT A SUGGESTION →</div></div>
+              <div className="action-grid">
+                <div className="resume-fragment">
+                  <div className="fragment-top"><span>YOUR WORDS</span><span>LIVE DOCUMENT</span></div>
+                  <p>Worked on <mark>web applications</mark> and helped the team with development.</p>
+                  <button className="rewrite-spot" onClick={()=>setRewriteDone(true)}>REWRITE THIS LINE <ArrowRight size={14}/></button>
+                  <AnimatePresence>
+                    {rewriteDone && <motion.div className="rewritten" initial={{opacity:0,y:12}} animate={{opacity:1,y:0}}><span>RESUMATCH / AFTER</span><p>Built and deployed 3 production web applications using React and Node.js, improving API performance by 40%.</p><b>+12 MATCH POTENTIAL</b></motion.div>}
+                  </AnimatePresence>
                 </div>
-                <div className="resume-info-details">
-                  <div className="resume-info-title-row">
-                    <h2 className="resume-info-filename">{resumeFileName}</h2>
-                    <span className="status-badge success">
-                      <span className="status-dot"></span> Parsed Successfully
-                    </span>
-                  </div>
-                  <div className="resume-info-meta">
-                    <span className="meta-item">
-                      <strong>Target Position:</strong> {jobDesc.split('\n')[0].replace('We are looking for a ', '').replace('Candidates should have ', '').replace('We are looking for ', '') || 'Front-End Engineer'}
-                    </span>
-                    <span className="meta-separator">•</span>
-                    <span className="meta-item">
-                      <strong>Word Count:</strong> {analysisResult.stats.wordCount} words
-                    </span>
-                  </div>
+                <div className="suggestion-stack">
+                  {result.suggestions.slice(0,4).map((s,i)=><motion.button key={s.id} className={`suggestion-row ${s.severity}`} whileHover={{x:5}} onClick={()=>setSelectedSignal(`suggestion-${i}`)}>
+                    <span>0{i+1}</span><div><b>{s.title}</b><small>{s.description}</small></div><ChevronRight size={15}/>
+                  </motion.button>)}
                 </div>
               </div>
+            </section>
 
-              <div className="resume-info-actions">
-                <button
-                  onClick={() => setPage('upload')}
-                  className="btn-secondary resume-action-btn"
-                >
-                  <RefreshCw className="w-3.5 h-3.5" /> Re-analyze File
-                </button>
+            <section className="matches-section" id="matches">
+              <div className="canvas-head"><div><div className="eyebrow">04 / OPPORTUNITY MAP</div><h2>THE JOB<br/><span>ANSWERS BACK.</span></h2></div><div className="mono-label">CLICK A ROLE</div></div>
+              <div className="match-grid">
+                <div className="job-list">{jobs.map((job,i)=><button key={job.title} className={`job-row ${selectedJob===i?'active':''}`} onClick={()=>setSelectedJob(i)}><strong>{job.score}%</strong><div><b>{job.title}</b><small>{job.company} · FULL-TIME</small></div><ArrowRight size={15}/></button>)}</div>
+                <motion.div key={selectedJob} className="job-detail" initial={{opacity:.5,x:15}} animate={{opacity:1,x:0}}>
+                  <div className="mono-label">WHY THIS FITS</div><h3>{jobs[selectedJob].title} / {jobs[selectedJob].score}%</h3><p>{jobs[selectedJob].reason}</p>
+                  {['SKILLS','EXPERIENCE','KEYWORDS'].map((label,i)=><div className="meter" key={label}><div><span>{label}</span><b>{jobs[selectedJob].bars[i]}</b></div><i><em style={{width:`${jobs[selectedJob].bars[i]}%`}}/></i></div>)}
+                </motion.div>
               </div>
-            </div>
+            </section>
 
-            {/* Quick Metrics Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {/* ATS SCORE CARD */}
-              <div className="glass-card metric-card metric-primary">
-                <div className="space-y-2">
-                  <span className="metric-label">ATS Match Score</span>
-                  <div className="metric-value">{analysisResult.score}%</div>
-                  <div className="metric-badge" style={{ color: analysisResult.ratingColor, background: 'rgba(34, 197, 94, 0.08)', border: '1px solid rgba(34, 197, 94, 0.2)' }}>
-                    {analysisResult.rating}
-                  </div>
-                </div>
-                <div className="circular-progress-container w-16 h-16">
-                  <svg className="circular-progress-svg w-16 h-16">
-                    <circle className="circular-progress-bg stroke-slate-200 dark:stroke-slate-800" strokeWidth="5" r="26" cx="32" cy="32" />
-                    <motion.circle 
-                      className="circular-progress-bar"
-                      stroke={analysisResult.score >= 80 ? 'var(--success)' : analysisResult.score >= 60 ? 'var(--warning)' : 'var(--error)'}
-                      strokeWidth="5" 
-                      strokeDasharray={2 * Math.PI * 26}
-                      initial={{ strokeDashoffset: 2 * Math.PI * 26 }}
-                      animate={{ strokeDashoffset: 2 * Math.PI * 26 * (1 - analysisResult.score / 100) }}
-                      transition={{ duration: 1.5, ease: 'easeOut' }}
-                      r="26" cx="32" cy="32" 
-                    />
-                  </svg>
-                  <div className="absolute text-xs font-bold">{analysisResult.score}%</div>
-                </div>
-              </div>
-
-              {/* STRENGTH CARD */}
-              <div className="glass-card metric-card metric-secondary">
-                <div className="space-y-2 w-full">
-                  <div className="flex items-center justify-between">
-                    <span className="metric-label">Resume Strength</span>
-                    <Award className="w-5 h-5 text-purple-500" />
-                  </div>
-                  <div className="metric-value">
-                    {analysisResult.score >= 80 ? 'High' : analysisResult.score >= 60 ? 'Medium' : 'Needs Work'}
-                  </div>
-                  <div className="w-full bg-slate-200 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden mt-2">
-                    <motion.div 
-                      className="h-full bg-gradient-to-r from-indigo-500 to-purple-500" 
-                      initial={{ width: 0 }}
-                      animate={{ width: `${analysisResult.score}%` }}
-                      transition={{ duration: 1.2 }}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* KEYWORDS MATCHED */}
-              <div className="glass-card metric-card metric-accent">
-                <div className="space-y-2 w-full">
-                  <div className="flex items-center justify-between">
-                    <span className="metric-label">Keywords Matched</span>
-                    <TrendingUp className="w-5 h-5 text-cyan-500" />
-                  </div>
-                  <div className="metric-value">
-                    {analysisResult.stats.matchCount} <span className="text-sm font-normal text-slate-400">/ {analysisResult.stats.matchCount + analysisResult.stats.missingCount}</span>
-                  </div>
-                  <p className="metric-desc">
-                    {analysisResult.stats.missingCount} missing keywords detected
-                  </p>
-                </div>
-              </div>
-
-              {/* ACTION ITEMS */}
-              <div className="glass-card metric-card metric-warning">
-                <div className="space-y-2 w-full">
-                  <div className="flex items-center justify-between">
-                    <span className="metric-label">AI Suggestions</span>
-                    <Sparkles className="w-5 h-5 text-amber-500" />
-                  </div>
-                  <div className="metric-value">
-                    {analysisResult.suggestions.filter(s => s.severity === 'high').length} <span className="text-sm font-normal text-slate-400">Critical</span>
-                  </div>
-                  <p className="metric-desc">
-                    {analysisResult.suggestions.length} total recommended tweaks
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Navigation Tabs (Segmented Control) */}
-            <div className="segmented-tabs-container">
-              {[
-                { id: 'overview', label: 'Match Overview', icon: Cpu },
-                { id: 'keywords', label: 'Keyword Analysis', icon: FileText },
-                { id: 'suggestions', label: 'AI Optimization', icon: Sparkles },
-                { id: 'tuning', label: 'Sandbox Job Tuning', icon: RefreshCw },
-              ].map(tab => {
-                const Icon = tab.icon;
-                const active = activeTab === tab.id;
-                return (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id)}
-                    className={`segmented-tab ${active ? 'active' : ''}`}
-                  >
-                    <Icon className="w-4 h-4 tab-icon" />
-                    <span>{tab.label}</span>
-                    {tab.id === 'suggestions' && (
-                      <span className="tab-badge">
-                        {analysisResult.suggestions.length}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* TAB CONTENTS */}
-            <div className="min-h-[400px]" style={{ marginTop: '1.75rem' }}>
-              
-              {/* OVERVIEW TAB */}
-              {activeTab === 'overview' && (
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                  {/* Left Column: Skill Metrics */}
-                  <div className="lg:col-span-7 space-y-6">
-                    <div className="glass-panel p-6 space-y-4">
-                      <h3 className="text-lg font-bold">ATS Alignment Metrics</h3>
-                      
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="p-4 rounded-xl bg-slate-500/5 border border-slate-200/50 dark:border-slate-800/50 space-y-1">
-                          <span className="text-xs text-slate-400 font-semibold">Parser Readability</span>
-                          <div className="text-xl font-bold">Good</div>
-                          <div className="w-full bg-slate-200 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden mt-1.5">
-                            <div className="h-full bg-emerald-500 w-[90%]" />
-                          </div>
-                        </div>
-
-                        <div className="p-4 rounded-xl bg-slate-500/5 border border-slate-200/50 dark:border-slate-800/50 space-y-1">
-                          <span className="text-xs text-slate-400 font-semibold">Contact Details found</span>
-                          <div className="text-xl font-bold">{analysisResult.stats.sectionsFound >= 4 ? 'Complete' : 'Incomplete'}</div>
-                          <div className="w-full bg-slate-200 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden mt-1.5">
-                            <div className="h-full bg-indigo-500" style={{ width: `${(analysisResult.stats.sectionsFound / 5) * 100}%` }} />
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Radar Chart */}
-                      <div className="h-72 w-full pt-4">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <RadarChart cx="50%" cy="50%" outerRadius="80%" data={analysisResult.skillData}>
-                            <PolarGrid stroke="var(--border-color)" />
-                            <PolarAngleAxis dataKey="subject" stroke="var(--text-secondary)" tick={{ fontSize: 11 }} />
-                            <PolarRadiusAxis angle={30} domain={[0, 100]} stroke="var(--text-muted)" tick={{ fontSize: 9 }} />
-                            <Radar 
-                              name="Resume Profile" 
-                              dataKey="A" 
-                              stroke="var(--primary)" 
-                              fill="var(--primary)" 
-                              fillOpacity={0.25} 
-                            />
-                            <Tooltip />
-                          </RadarChart>
-                        </ResponsiveContainer>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Right Column: Score Trends and Modification Timeline */}
-                  <div className="lg:col-span-5 space-y-6">
-                    <div className="glass-panel p-6 space-y-5">
-                      <div>
-                        <h3 className="text-lg font-bold">Improvement History</h3>
-                        <p className="text-xs text-slate-400 mt-0.5">Track how your score changes with each revision attempt.</p>
-                      </div>
-
-                      <div className="h-48 w-full">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <LineChart data={scoreHistory}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" vertical={false} />
-                            <XAxis dataKey="attempt" stroke="var(--text-secondary)" tick={{ fontSize: 9 }} />
-                            <YAxis domain={[0, 100]} stroke="var(--text-secondary)" tick={{ fontSize: 9 }} />
-                            <Tooltip />
-                            <Line 
-                              type="monotone" 
-                              dataKey="score" 
-                              stroke="var(--secondary)" 
-                              strokeWidth={2.5} 
-                              activeDot={{ r: 5 }} 
-                              dot={{ strokeWidth: 2, r: 3 }}
-                            />
-                          </LineChart>
-                        </ResponsiveContainer>
-                      </div>
-
-                      {/* Modifications Timeline */}
-                      <div className="timeline-container">
-                        <span className="timeline-title">Audit Timeline</span>
-                        <div className="timeline-items">
-                          {scoreHistory.map((item, index) => {
-                            const isLatest = index === scoreHistory.length - 1;
-                            return (
-                              <div key={index} className={`timeline-item ${isLatest ? 'latest' : ''}`}>
-                                <div className="timeline-marker-wrapper">
-                                  <div className="timeline-marker">
-                                    {isLatest ? <Sparkles className="w-3.5 h-3.5 text-white" /> : <Check className="w-3 h-3 text-slate-400 dark:text-slate-500" />}
-                                  </div>
-                                  {index < scoreHistory.length - 1 && <div className="timeline-connector"></div>}
-                                </div>
-                                <div className="timeline-content">
-                                  <div className="timeline-header">
-                                    <span className="timeline-attempt">{item.attempt}</span>
-                                    <span className={`timeline-score-badge ${item.score >= 80 ? 'high' : item.score >= 60 ? 'medium' : 'low'}`}>
-                                      {item.score}%
-                                    </span>
-                                  </div>
-                                  <p className="timeline-desc">
-                                    {index === 0 && "Initial uploaded file parsing diagnostics."}
-                                    {index === 1 && "Extracted skill matrices and linked related frameworks."}
-                                    {index === 2 && "Optimized candidate keywords aligning with requirements."}
-                                    {index >= 3 && "Current workspace alignment matching index."}
-                                  </p>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-
-                      <div className="p-4 rounded-xl border border-indigo-500/25 bg-indigo-500/5 flex items-start gap-3">
-                        <Info className="w-5 h-5 text-indigo-400 mt-0.5 flex-shrink-0" />
-                        <div className="space-y-1">
-                          <span className="text-xs font-bold text-indigo-400">Current Position Status</span>
-                          <p className="text-xs text-slate-400 leading-relaxed">
-                            {analysisResult.score >= 80 
-                              ? 'Your resume shows robust formatting and keyword layout alignment. You are highly competitive for this role.' 
-                              : 'To cross the ideal 80% threshold, integrate the missing keywords highlighted in the Keywords tab.'}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* KEYWORDS TAB */}
-              {activeTab === 'keywords' && (
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                  {/* Left Column: Pills Grid */}
-                  <div className="lg:col-span-8 space-y-6">
-                    <div className="glass-panel p-6 space-y-6">
-                      <div className="space-y-1">
-                        <h3 className="text-lg font-bold">Semantic Vocabulary Audit</h3>
-                        <p className="text-xs text-slate-400">We scanned the target job specifications and mapped them against your text.</p>
-                      </div>
-
-                      {/* Found Keywords */}
-                      <div className="space-y-3">
-                        <span className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                          <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                          Found Keywords ({analysisResult.matchedKeywords.length})
-                        </span>
-                        <div className="flex flex-wrap gap-2">
-                          {analysisResult.matchedKeywords.map((kw, i) => (
-                            <motion.span 
-                              key={kw}
-                              initial={{ opacity: 0, scale: 0.8 }}
-                              animate={{ opacity: 1, scale: 1 }}
-                              transition={{ delay: i * 0.05 }}
-                              className="chip chip-success text-xs"
-                            >
-                              <Check className="w-3.5 h-3.5" />
-                              {kw.toUpperCase()}
-                            </motion.span>
-                          ))}
-                          {analysisResult.matchedKeywords.length === 0 && (
-                            <span className="text-xs text-slate-400 italic">No matching keywords found in text yet.</span>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Missing Keywords */}
-                      <div className="space-y-3">
-                        <span className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                          <span className="w-2 h-2 rounded-full bg-rose-500" />
-                          Missing Keywords ({analysisResult.missingKeywords.length})
-                        </span>
-                        <div className="flex flex-wrap gap-2">
-                          {analysisResult.missingKeywords.map((kw, i) => (
-                            <motion.span 
-                              key={kw}
-                              initial={{ opacity: 0, scale: 0.8 }}
-                              animate={{ opacity: 1, scale: 1 }}
-                              transition={{ delay: i * 0.05 }}
-                              className="chip chip-error text-xs"
-                            >
-                              <AlertTriangle className="w-3.5 h-3.5" />
-                              {kw.toUpperCase()}
-                            </motion.span>
-                          ))}
-                          {analysisResult.missingKeywords.length === 0 && (
-                            <span className="text-xs text-slate-400 italic">Perfect fit! No missing keywords.</span>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Recommended Additions */}
-                      <div className="space-y-3">
-                        <span className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                          <span className="w-2 h-2 rounded-full bg-amber-500" />
-                          Recommended Industry Concepts ({analysisResult.recommendedKeywords.length})
-                        </span>
-                        <div className="flex flex-wrap gap-2">
-                          {analysisResult.recommendedKeywords.map((kw, i) => (
-                            <motion.span 
-                              key={kw}
-                              initial={{ opacity: 0, scale: 0.8 }}
-                              animate={{ opacity: 1, scale: 1 }}
-                              transition={{ delay: i * 0.05 }}
-                              className="chip chip-warning text-xs"
-                            >
-                              <Plus className="w-3.5 h-3.5" />
-                              {kw.toUpperCase()}
-                            </motion.span>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Right Column: Keyword density Chart */}
-                  <div className="lg:col-span-4 space-y-6">
-                    <div className="glass-panel p-6 space-y-4">
-                      <h3 className="text-lg font-bold">Keyword Ratio</h3>
-                      <p className="text-xs text-slate-400">Breakdown of matched vs. missing target terms.</p>
-
-                      <div className="h-56 w-full flex items-center justify-center">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <BarChart data={[
-                            { name: 'Matched', count: analysisResult.stats.matchCount, fill: 'var(--success)' },
-                            { name: 'Missing', count: analysisResult.stats.missingCount, fill: 'var(--error)' }
-                          ]}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" vertical={false} />
-                            <XAxis dataKey="name" stroke="var(--text-secondary)" tick={{ fontSize: 11 }} />
-                            <YAxis stroke="var(--text-secondary)" tick={{ fontSize: 10 }} />
-                            <Tooltip />
-                            <Bar dataKey="count" radius={[8, 8, 0, 0]}>
-                              <Cell fill="var(--success)" />
-                              <Cell fill="var(--error)" />
-                            </Bar>
-                          </BarChart>
-                        </ResponsiveContainer>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* AI OPTIMIZATION TAB */}
-              {activeTab === 'suggestions' && (
-                <div className="max-w-4xl mx-auto space-y-4">
-                  <div className="flex justify-between items-center mb-2">
-                    <div>
-                      <h3 className="text-lg font-bold">Tailoring Suggestions</h3>
-                      <p className="text-xs text-slate-400">Implement these modifications in your resume file to optimize readability index.</p>
-                    </div>
-                    <span className="text-xs font-bold px-3 py-1 rounded-full bg-red-500/10 border border-red-500/20 text-red-500">
-                      {analysisResult.suggestions.length} items to address
-                    </span>
-                  </div>
-
-                  {/* Suggestion Accordion Cards */}
-                  <div className="space-y-3">
-                    {analysisResult.suggestions.map((item, index) => {
-                      const isExpanded = expandedSuggestion === item.id;
-                      return (
-                        <div 
-                          key={item.id} 
-                          className="glass-card overflow-hidden border-slate-200/50 dark:border-slate-800/50 rounded-xl"
-                        >
-                          <div 
-                            onClick={() => setExpandedSuggestion(isExpanded ? null : item.id)}
-                            className="p-5 flex items-center justify-between cursor-pointer hover:bg-slate-500/5"
-                          >
-                            <div className="flex items-center gap-4">
-                              <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                                item.severity === 'high' 
-                                  ? 'bg-rose-500/10 text-rose-500' 
-                                  : item.severity === 'medium' 
-                                    ? 'bg-amber-500/10 text-amber-500' 
-                                    : 'bg-emerald-500/10 text-emerald-500'
-                              }`}>
-                                <AlertTriangle className="w-5 h-5" />
-                              </div>
-                              <span className="font-semibold text-sm sm:text-base">{item.title}</span>
-                            </div>
-                            <div className="flex items-center gap-3">
-                              <span className={`text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded ${
-                                item.severity === 'high' 
-                                  ? 'bg-rose-500/20 text-rose-500' 
-                                  : item.severity === 'medium' 
-                                    ? 'bg-amber-500/20 text-amber-500' 
-                                    : 'bg-emerald-500/20 text-emerald-500'
-                              }`}>
-                                {item.severity}
-                              </span>
-                              {isExpanded ? <ChevronUp className="w-5 h-5 text-slate-400" /> : <ChevronDown className="w-5 h-5 text-slate-400" />}
-                            </div>
-                          </div>
-
-                          <AnimatePresence>
-                            {isExpanded && (
-                              <motion.div 
-                                initial={{ height: 0 }}
-                                animate={{ height: 'auto' }}
-                                exit={{ height: 0 }}
-                                className="border-t border-slate-200/50 dark:border-slate-800/50 bg-slate-500/5"
-                              >
-                                <div className="p-5 text-sm text-slate-600 dark:text-slate-400 leading-relaxed space-y-3">
-                                  <p>{item.description}</p>
-                                  <div className="p-3 rounded-lg bg-indigo-500/5 border border-indigo-500/10 text-xs text-indigo-400/90 font-medium">
-                                    💡 <strong className="text-indigo-400">ATS TIP:</strong> Keep headers standard. Always use simple, text-based headers without images, logos, or charts to prevent parser parsing failures.
-                                  </div>
-                                </div>
-                              </motion.div>
-                            )}
-                          </AnimatePresence>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* SANDBOX JOB TUNING TAB */}
-              {activeTab === 'tuning' && (
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                  {/* Left Column: Inputs */}
-                  <div className="lg:col-span-8 space-y-6">
-                    <div className="glass-panel p-6 space-y-6">
-                      <div className="space-y-1">
-                        <h3 className="text-lg font-bold">Interactive Sandbox Analyzer</h3>
-                        <p className="text-xs text-slate-400">Edit your resume content or job requirements below to see your ATS Score recalculate in real-time.</p>
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="space-y-2">
-                          <label className="block text-xs font-bold uppercase tracking-wider text-slate-400">Resume Document Text</label>
-                          <textarea
-                            className="text-input min-h-[300px] font-mono text-xs"
-                            value={resumeText}
-                            onChange={(e) => setResumeText(e.target.value)}
-                          />
-                        </div>
-
-                        <div className="space-y-2">
-                          <label className="block text-xs font-bold uppercase tracking-wider text-slate-400">Target Position Details</label>
-                          <textarea
-                            className="text-input min-h-[300px] text-xs leading-relaxed"
-                            value={jobDesc}
-                            onChange={(e) => setJobDesc(e.target.value)}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Right Column: Live Recalculated Score Card */}
-                  <div className="lg:col-span-4 space-y-6">
-                    <div className="glass-panel p-6 text-center space-y-6 flex flex-col justify-between h-full">
-                      <div className="space-y-2">
-                        <h3 className="text-lg font-bold">Live Alignment Score</h3>
-                        <p className="text-xs text-slate-400">Updated automatically with every keystroke.</p>
-                      </div>
-
-                      <div className="flex justify-center py-4">
-                        <div className="w-36 h-36 rounded-full border-8 border-slate-500/10 flex flex-col items-center justify-center relative bg-indigo-500/5 shadow-[0_0_20px_var(--primary-glow)]">
-                          <div className="text-4xl font-extrabold text-indigo-400">{analysisResult.score}%</div>
-                          <span className="text-[10px] uppercase font-bold text-slate-400 mt-1">ATS Score</span>
-                        </div>
-                      </div>
-
-                      <div className="space-y-2">
-                        <div className="text-sm font-semibold" style={{ color: analysisResult.ratingColor }}>
-                          {analysisResult.rating}
-                        </div>
-                        <p className="text-xs text-slate-400 leading-relaxed px-4">
-                          Your resume matches {analysisResult.stats.matchCount} keyword tokens from the target job posting.
-                        </p>
-                      </div>
-
-                      <button
-                        onClick={loadSample}
-                        className="btn-secondary w-full py-2.5 text-xs justify-center"
-                      >
-                        Reset to Sample Data
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-            </div>
-          </motion.div>
+            <section className="roots"><div className="eyebrow">05 / ROOTS</div><h2>YOU SHOULDN’T<br/>HAVE TO GUESS<br/><span>WHY THEY SAID NO.</span></h2><p>ResuMatch makes the invisible layer between your experience and an opportunity visible — what the system sees, what needs stronger evidence, and where the stronger version can go.</p><p className="signature">BUILT BY <b>SOUMYA K.</b> / RESUMATCH AI</p></section>
+          </motion.main>
         )}
-
-      </main>
-
-      {/* Footer */}
-      <footer className="w-full border-t border-slate-200/50 dark:border-slate-800/50 bg-white/20 dark:bg-slate-900/20 backdrop-blur-md mt-16 py-6 text-center text-xs text-slate-500 dark:text-slate-500">
-        <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-1.5">
-            <Sparkles className="w-4.5 h-4.5 text-indigo-500" />
-            <span>ResuMatch AI - Premium Resume Optimizer</span>
-          </div>
-          <div className="flex items-center gap-6">
-            <a href="#" className="hover:text-slate-700 dark:hover:text-slate-300 transition-colors">Privacy Policy</a>
-            <a href="#" className="hover:text-slate-700 dark:hover:text-slate-300 transition-colors">Terms of Service</a>
-            <a href="#" className="hover:text-slate-700 dark:hover:text-slate-300 flex items-center gap-1 transition-colors">
-              <Github className="w-4 h-4" /> GitHub
-            </a>
-          </div>
-        </div>
-      </footer>
+      </AnimatePresence>
     </div>
   );
 }
